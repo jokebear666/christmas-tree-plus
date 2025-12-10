@@ -37,6 +37,7 @@ const bodyPhotoPaths = Object.values(photoModules).sort((a, b) => {
 
 // --- 视觉配置 ---
 const IS_MOBILE = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+const IS_QQ = /QQBrowser|MQQBrowser/i.test(navigator.userAgent);
 const CONFIG = {
   colors: {
     emerald: '#004225', // 纯正祖母绿
@@ -473,8 +474,8 @@ const Experience = ({ sceneState, rotationSpeed, photoUrls, counts, transitionPr
       <OrbitControls ref={controlsRef} enablePan={false} enableZoom={true} minDistance={30} maxDistance={120} autoRotate={rotationSpeed === 0 && sceneState === 'FORMED'} autoRotateSpeed={0.3} maxPolarAngle={Math.PI / 1.7} />
 
       <color attach="background" args={['#000300']} />
-      <Stars radius={100} depth={50} count={IS_MOBILE ? 2000 : 5000} factor={4} saturation={0} fade speed={1} />
-      <Environment preset="night" background={false} />
+      <Stars radius={100} depth={50} count={IS_QQ ? 1000 : (IS_MOBILE ? 2000 : 5000)} factor={4} saturation={0} fade speed={1} />
+      {!IS_MOBILE && <Environment preset="night" background={false} />}
 
       <ambientLight intensity={0.4} color="#003311" />
       <pointLight position={[30, 30, 30]} intensity={100} color={CONFIG.colors.warmLight} />

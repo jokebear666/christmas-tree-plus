@@ -72,7 +72,8 @@ const CONFIG = {
 // --- Shader Material (Foliage) ---
 const FoliageMaterial = shaderMaterial(
   { uTime: 0, uColor: new THREE.Color(CONFIG.colors.emerald), uProgress: 0 },
-  `uniform float uTime; uniform float uProgress; attribute vec3 aTargetPos; attribute float aRandom;
+  `precision mediump float; precision mediump int;
+  uniform float uTime; uniform float uProgress; attribute vec3 aTargetPos; attribute float aRandom;
   varying vec2 vUv; varying float vMix;
   float cubicInOut(float t) { return t < 0.5 ? 4.0 * t * t * t : 0.5 * pow(2.0 * t - 2.0, 3.0) + 1.0; }
   void main() {
@@ -85,7 +86,8 @@ const FoliageMaterial = shaderMaterial(
     gl_Position = projectionMatrix * mvPosition;
     vMix = t;
   }`,
-  `uniform vec3 uColor; varying float vMix;
+  `precision mediump float; precision mediump int;
+  uniform vec3 uColor; varying float vMix;
   void main() {
     float r = distance(gl_PointCoord, vec2(0.5)); if (r > 0.5) discard;
     vec3 finalColor = mix(uColor * 0.3, uColor * 1.2, vMix);
@@ -139,9 +141,19 @@ const Foliage = ({ state, count }: { state: 'CHAOS' | 'FORMED', count: number })
 
 // --- Component: Photo Ornaments (Double-Sided Polaroid) ---
 const PhotoOrnaments = ({ state, photoUrls, count, transitionProgress = 0, ringRadius = 14, isGallery = false, gallerySpeed = 1.0, focusScale = 2.0 }: { state: 'CHAOS' | 'FORMED', photoUrls: string[], count: number, transitionProgress?: number, ringRadius?: number, isGallery?: boolean, gallerySpeed?: number, focusScale?: number }) => {
-  const textures = useTexture(photoUrls);
+  const effectiveUrls = useMemo(() => photoUrls.slice(0, Math.max(1, Math.min(photoUrls.length, count))), [photoUrls, count]);
+  const textures = useTexture(effectiveUrls);
   const groupRef = useRef<THREE.Group>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  useEffect(() => {
+    if (IS_MOBILE) {
+      textures.forEach(tex => {
+        tex.generateMipmaps = false;
+        tex.minFilter = THREE.LinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+      });
+    }
+  }, [textures]);
 
   const borderGeometry = useMemo(() => new THREE.PlaneGeometry(1.2, 1.5), []);
   const photoGeometry = useMemo(() => new THREE.PlaneGeometry(1, 1), []);
@@ -453,7 +465,7 @@ const Experience = ({ sceneState, rotationSpeed, photoUrls, counts, transitionPr
       <OrbitControls ref={controlsRef} enablePan={false} enableZoom={true} minDistance={30} maxDistance={120} autoRotate={rotationSpeed === 0 && sceneState === 'FORMED'} autoRotateSpeed={0.3} maxPolarAngle={Math.PI / 1.7} />
 
       <color attach="background" args={['#000300']} />
-      <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
+      <Stars radius={100} depth={50} count={IS_MOBILE ? 2000 : 5000} factor={4} saturation={0} fade speed={1} />
       <Environment preset="night" background={false} />
 
       <ambientLight intensity={0.4} color="#003311" />

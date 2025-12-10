@@ -71,9 +71,9 @@ const CONFIG = {
 
 // --- Shader Material (Foliage) ---
 const FoliageMaterial = shaderMaterial(
-  { uTime: 0, uColor: new THREE.Color(CONFIG.colors.emerald), uProgress: 0 },
+  { uTime: 0, uColor: new THREE.Color(CONFIG.colors.emerald), uProgress: 0, uPointScale: 60 },
   `precision mediump float; precision mediump int;
-  uniform float uTime; uniform float uProgress; attribute vec3 aTargetPos; attribute float aRandom;
+  uniform float uTime; uniform float uProgress; uniform float uPointScale; attribute vec3 aTargetPos; attribute float aRandom;
   varying vec2 vUv; varying float vMix;
   float cubicInOut(float t) { return t < 0.5 ? 4.0 * t * t * t : 0.5 * pow(2.0 * t - 2.0, 3.0) + 1.0; }
   void main() {
@@ -82,7 +82,7 @@ const FoliageMaterial = shaderMaterial(
     float t = cubicInOut(uProgress);
     vec3 finalPos = mix(position, aTargetPos + noise, t);
     vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);
-    gl_PointSize = (60.0 * (1.0 + aRandom)) / -mvPosition.z;
+    gl_PointSize = (uPointScale * (1.0 + aRandom)) / -mvPosition.z;
     gl_Position = projectionMatrix * mvPosition;
     vMix = t;
   }`,
@@ -124,6 +124,7 @@ const Foliage = ({ state, count }: { state: 'CHAOS' | 'FORMED', count: number })
       materialRef.current.uTime = rootState.clock.elapsedTime;
       const targetProgress = state === 'FORMED' ? 1 : 0;
       materialRef.current.uProgress = MathUtils.damp(materialRef.current.uProgress, targetProgress, 1.5, delta);
+      materialRef.current.uPointScale = IS_MOBILE ? 36 : 60;
     }
   });
   return (
@@ -141,8 +142,15 @@ const Foliage = ({ state, count }: { state: 'CHAOS' | 'FORMED', count: number })
 
 // --- Component: Photo Ornaments (Double-Sided Polaroid) ---
 const PhotoOrnaments = ({ state, photoUrls, count, transitionProgress = 0, ringRadius = 14, isGallery = false, gallerySpeed = 1.0, focusScale = 2.0 }: { state: 'CHAOS' | 'FORMED', photoUrls: string[], count: number, transitionProgress?: number, ringRadius?: number, isGallery?: boolean, gallerySpeed?: number, focusScale?: number }) => {
-  const effectiveUrls = useMemo(() => photoUrls.slice(0, Math.max(1, Math.min(photoUrls.length, count))), [photoUrls, count]);
-  const textures = useTexture(effectiveUrls);
+  const effectiveUrls = useMemo(() => photoUrls.slice(0, Math.min(photoUrls.length, count)), [photoUrls, count]);
+  const loadedTextures = useTexture(effectiveUrls);
+  const fallbackTexture = useMemo(() => {
+    const data = new Uint8Array([255, 255, 255, 255]);
+    const tex = new THREE.DataTexture(data, 1, 1, THREE.RGBAFormat);
+    tex.needsUpdate = true;
+    return tex as unknown as THREE.Texture;
+  }, []);
+  const textures = loadedTextures.length > 0 ? loadedTextures : [fallbackTexture];
   const groupRef = useRef<THREE.Group>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   useEffect(() => {
@@ -481,7 +489,7 @@ const Experience = ({ sceneState, rotationSpeed, photoUrls, counts, transitionPr
            <FairyLights state={sceneState} count={effCounts.lights} />
            <TopStar state={sceneState} />
         </Suspense>
-        <Sparkles count={600} scale={50} size={8} speed={0.4} opacity={0.4} color={CONFIG.colors.silver} />
+        <Sparkles count={IS_MOBILE ? 200 : 600} scale={50} size={8} speed={0.4} opacity={0.4} color={CONFIG.colors.silver} />
       </group>
 
       {supportsPost && (

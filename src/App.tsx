@@ -9,8 +9,7 @@ import {
   Float,
   Stars,
   Sparkles,
-  useTexture,
-  Text
+  useTexture
 } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
@@ -473,166 +472,17 @@ const Experience = ({ sceneState, rotationSpeed, photoUrls, counts, transitionPr
 };
 
 // --- 3D 照片墙场景（GALLERY） ---
-const GalleryBackgroundOrnaments = ({ count = 80 }: { count?: number }) => {
-  const groupRef = useRef<THREE.Group>(null);
-  const sphereGeo = useMemo(() => new THREE.SphereGeometry(0.8, 24, 24), []);
-  const items = useMemo(() => {
-    return new Array(count).fill(0).map(() => {
-      const pos = new THREE.Vector3((Math.random()-0.5)*120, (Math.random()-0.5)*70, (Math.random()-0.5)*-200 - 20);
-      const color = CONFIG.colors.ornaments[Math.floor(Math.random()*CONFIG.colors.ornaments.length)];
-      const scale = 0.6 + Math.random()*1.6;
-      const rot = new THREE.Euler(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
-      const spin = { x: (Math.random()-0.5)*0.2, y: (Math.random()-0.5)*0.2, z: (Math.random()-0.5)*0.2 };
-      return { pos, color, scale, rot, spin };
-    });
-  }, [count]);
 
-  useFrame((_, delta) => {
-    if (!groupRef.current) return;
-    groupRef.current.children.forEach((mesh, i) => {
-      const d = items[i];
-      mesh.rotation.x += d.spin.x * delta;
-      mesh.rotation.y += d.spin.y * delta;
-      mesh.rotation.z += d.spin.z * delta;
-    });
-  });
 
-  return (
-    <group ref={groupRef}>
-      {items.map((d, i) => (
-        <mesh key={i} geometry={sphereGeo} position={d.pos} rotation={d.rot} scale={[d.scale, d.scale, d.scale]}>
-          <meshStandardMaterial color={d.color} metalness={0.95} roughness={0.12} emissive={d.color} emissiveIntensity={0.15} />
-        </mesh>
-      ))}
-    </group>
-  );
-};
 
-const Polaroid = ({ texture, highlight, onClick, tilt = 0, baseScale = 1 }: { texture: THREE.Texture, highlight: number, onClick: () => void, tilt?: number, baseScale?: number }) => {
-  const borderGeo = useMemo(() => new THREE.PlaneGeometry(1.6, 2.0), []);
-  const photoGeo = useMemo(() => new THREE.PlaneGeometry(1.4, 1.4), []);
-  const groupRef = useRef<THREE.Group>(null);
-  useFrame(() => { if (groupRef.current) groupRef.current.rotation.x = tilt; });
-  return (
-    <group ref={groupRef} scale={[baseScale, baseScale, baseScale]}>
-      <group position={[0, -0.12, 0]} onClick={(e) => { e.stopPropagation(); onClick(); }}>
-        <mesh geometry={borderGeo}>
-          <meshStandardMaterial color={'#FFFFFF'} roughness={0.85} metalness={0.0} emissive={'#FFFFFF'} emissiveIntensity={0.05 + highlight * 0.2} />
-        </mesh>
-        <mesh geometry={photoGeo} position={[0, 0.1, 0.01]}>
-          <meshStandardMaterial map={texture} roughness={0.6} metalness={0.0} emissive={'#FFFFFF'} emissiveMap={texture} emissiveIntensity={0.3 + highlight * 0.8} />
-        </mesh>
-      </group>
-    </group>
-  );
-};
-
-const PhotoCarousel = ({ urls, count, radius, baseScale }: { urls: string[], count: number, radius: number, baseScale: number }) => {
-  const textures = useTexture(urls.slice(0, Math.max(1, Math.min(urls.length, count))));
-  const groupRef = useRef<THREE.Group>(null);
-  const [rotation, setRotation] = useState(0);
-  const [target, setTarget] = useState(0);
-  const dragging = useRef(false);
-  const lastX = useRef(0);
-  const n = textures.length;
-  const step = (Math.PI * 2) / n;
-
-  useFrame((_, delta) => {
-    setRotation((r) => MathUtils.damp(r, target, 3.0, delta));
-  });
-
-  const handleDown = (e: any) => { dragging.current = true; lastX.current = e.clientX; };
-  const handleMove = (e: any) => { if (!dragging.current) return; const dx = e.clientX - lastX.current; lastX.current = e.clientX; setTarget((t) => t + dx * 0.005); };
-  const handleUp = () => { dragging.current = false; };
-
-  const centerToIndex = (i: number) => {
-    const angleForIndex = i * step;
-    // 将索引 i 对齐到正前方（角度 0）
-    setTarget(-angleForIndex);
-  };
-
-  return (
-    <group ref={groupRef} onPointerDown={handleDown} onPointerMove={handleMove} onPointerUp={handleUp}>
-      {textures.map((tex, i) => {
-        const angle = i * step + rotation;
-        const x = Math.sin(angle) * radius;
-        const z = Math.cos(angle) * radius;
-        const y = Math.sin(angle * 2) * 1.0; // 轻微上下起伏
-        const distFactor = Math.abs(Math.atan2(Math.sin(angle), Math.cos(angle))); // 0 附近为中心
-        const highlight = Math.max(0, 1 - distFactor / (Math.PI / 3));
-        const scale = baseScale * (0.8 + highlight * 0.5);
-        const tilt = MathUtils.lerp(0.25, -0.1, highlight); // 中心更正向用户
-        return (
-          <group key={i} position={[x, y, z]} rotation={[0, -angle, 0]} scale={[scale, scale, scale]}>
-            <group position={[0, 0, 0]}>
-              <Polaroid texture={tex} highlight={highlight} tilt={tilt} baseScale={1} onClick={() => centerToIndex(i)} />
-            </group>
-            {/* 让卡片朝向摄像机中心 */}
-            <group>
-              {/* lookAt 近似：将 y 稍作偏移，营造面向效果 */}
-            </group>
-          </group>
-        );
-      })}
-    </group>
-  );
-};
-
-const GalleryExperience = ({ visible, urls, gallery }: { visible: number, urls: string[], gallery: { photos: number, scale: number, radius: number } }) => {
-  const rootRef = useRef<THREE.Group>(null);
-  useFrame(() => {
-    if (rootRef.current) {
-      rootRef.current.scale.setScalar(Math.max(0.001, visible));
-      rootRef.current.visible = visible > 0.001;
-    }
-  });
-  return (
-    <>
-      <PerspectiveCamera makeDefault position={[0, 0, 35]} fov={50} />
-      <color attach="background" args={["#000000"]} />
-      <Environment preset="night" background={false} />
-      <Stars radius={120} depth={80} count={8000} factor={4} saturation={0} fade speed={1} />
-      <Sparkles count={800} scale={60} size={6} speed={0.5} opacity={0.2} color={CONFIG.colors.silver} />
-
-      <ambientLight intensity={0.5} color="#222222" />
-      <pointLight position={[20, 20, 20]} intensity={80} color={CONFIG.colors.warmLight} />
-      <pointLight position={[-25, -10, -15]} intensity={40} color={CONFIG.colors.gold} />
-
-      {/* 背景饰品（金属球体） */}
-      <group ref={rootRef}>
-        <GalleryBackgroundOrnaments count={100} />
-
-      {/* 标题 */}
-      <group position={[0, 12, 0]}> 
-        <Float speed={1.5} floatIntensity={0.8} rotationIntensity={0.2}>
-          <Text fontSize={5} color={CONFIG.colors.gold} outlineWidth={0.02} outlineColor="#FFC107" anchorX="center" anchorY="middle">
-            Merry Christmas
-          </Text>
-        </Float>
-      </group>
-
-      {/* 轮播 */}
-      <group position={[0, -2, 0]}>
-        <Suspense fallback={null}>
-          <PhotoCarousel urls={urls} count={gallery.photos} radius={gallery.radius} baseScale={gallery.scale} />
-        </Suspense>
-      </group>
-      </group>
-
-      <EffectComposer>
-        <Bloom luminanceThreshold={0.6} luminanceSmoothing={0.15} intensity={1.2} radius={0.6} mipmapBlur />
-        <Vignette eskil={false} offset={0.1} darkness={1.0} />
-      </EffectComposer>
-    </>
-  );
-};
+/* Removed unused GalleryExperience component */
 
 // --- 已移除 GestureController ---
 
 // --- App Entry ---
 export default function GrandTreeApp() {
   const [sceneState, setSceneState] = useState<'CHAOS' | 'FORMED' | 'GALLERY'>('FORMED');
-  const [rotationSpeed, setRotationSpeed] = useState(0);
+  const [rotationSpeed] = useState(0);
   // 已移除 AI 状态与调试模式
   // 动态照片列表（默认使用构建期扫描的资源，可追加用户上传）
   const [photoUrls, setPhotoUrls] = useState<string[]>(bodyPhotoPaths);

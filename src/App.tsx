@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect, Suspense } from 'react';
 import './App.css';
-import { Canvas, useFrame, extend } from '@react-three/fiber';
+import { Canvas, useFrame, extend, useThree } from '@react-three/fiber';
 import {
   OrbitControls,
   Environment,
@@ -36,6 +36,7 @@ const bodyPhotoPaths = Object.values(photoModules).sort((a, b) => {
 });
 
 // --- 视觉配置 ---
+const IS_MOBILE = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 const CONFIG = {
   colors: {
     emerald: '#004225', // 纯正祖母绿
@@ -431,6 +432,14 @@ const TopStar = ({ state }: { state: 'CHAOS' | 'FORMED' }) => {
 // --- Main Scene Experience ---
 const Experience = ({ sceneState, rotationSpeed, photoUrls, counts, transitionProgress = 0, ringRadius = 14, isGallery = false, gallerySpeed = 1.0 }: { sceneState: 'CHAOS' | 'FORMED', rotationSpeed: number, photoUrls: string[], counts: { foliage: number; ornaments: number; elements: number; lights: number; gallery: { photos: number; scale: number; radius: number; moveSpeed: number }; camera: { distance: number } }, transitionProgress?: number, ringRadius?: number, isGallery?: boolean, gallerySpeed?: number }) => {
   const controlsRef = useRef<any>(null);
+  const { gl } = useThree();
+  const supportsPost = !!(gl && (gl as any).capabilities && (gl as any).capabilities.isWebGL2) && !IS_MOBILE;
+  const effCounts = IS_MOBILE ? {
+    foliage: Math.min(counts.foliage, 8000),
+    ornaments: Math.min(counts.ornaments, 160),
+    elements: Math.min(counts.elements, 120),
+    lights: Math.min(counts.lights, 180)
+  } : counts;
   useFrame(() => {
     if (controlsRef.current) {
       controlsRef.current.setAzimuthalAngle(controlsRef.current.getAzimuthalAngle() + rotationSpeed);
@@ -453,20 +462,22 @@ const Experience = ({ sceneState, rotationSpeed, photoUrls, counts, transitionPr
       <pointLight position={[0, -20, 10]} intensity={30} color="#ffffff" />
 
       <group position={[0, -6, 0]}>
-        <Foliage state={sceneState} count={counts.foliage} />
+        <Foliage state={sceneState} count={effCounts.foliage} />
         <Suspense fallback={null}>
-           <PhotoOrnaments state={sceneState} photoUrls={photoUrls} count={counts.ornaments} transitionProgress={transitionProgress} ringRadius={ringRadius} isGallery={isGallery} gallerySpeed={gallerySpeed} focusScale={counts.gallery.scale} />
-           <ChristmasElements state={sceneState} count={counts.elements} />
-           <FairyLights state={sceneState} count={counts.lights} />
+           <PhotoOrnaments state={sceneState} photoUrls={photoUrls} count={effCounts.ornaments} transitionProgress={transitionProgress} ringRadius={ringRadius} isGallery={isGallery} gallerySpeed={gallerySpeed} focusScale={counts.gallery.scale} />
+           <ChristmasElements state={sceneState} count={effCounts.elements} />
+           <FairyLights state={sceneState} count={effCounts.lights} />
            <TopStar state={sceneState} />
         </Suspense>
         <Sparkles count={600} scale={50} size={8} speed={0.4} opacity={0.4} color={CONFIG.colors.silver} />
       </group>
 
-      <EffectComposer>
-        <Bloom luminanceThreshold={0.8} luminanceSmoothing={0.1} intensity={1.5} radius={0.5} mipmapBlur />
-        <Vignette eskil={false} offset={0.1} darkness={1.2} />
-      </EffectComposer>
+      {supportsPost && (
+        <EffectComposer>
+          <Bloom luminanceThreshold={0.8} luminanceSmoothing={0.1} intensity={1.5} radius={0.5} mipmapBlur />
+          <Vignette eskil={false} offset={0.1} darkness={1.2} />
+        </EffectComposer>
+      )}
     </>
   );
 };
@@ -528,7 +539,7 @@ export default function GrandTreeApp() {
         <div className="subtitle">点击任意处开始</div>
       </div>
       <div style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1 }}>
-        <Canvas dpr={[1, 2]} gl={{ toneMapping: THREE.ReinhardToneMapping }} shadows>
+        <Canvas dpr={IS_MOBILE ? 1 : [1, 2]} gl={{ toneMapping: THREE.ReinhardToneMapping, antialias: !IS_MOBILE, powerPreference: 'high-performance' }} shadows={!IS_MOBILE}>
           <SceneRoot sceneState={sceneState} rotationSpeed={rotationSpeed} photoUrls={photoUrls} counts={counts} />
         </Canvas>
       </div>

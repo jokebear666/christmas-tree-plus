@@ -57,12 +57,13 @@ const CONFIG = {
   },
   counts: IS_MOBILE
     ? {
-        foliage: 1500,
-        ornaments: 10,   // 拍立得照片数量（移动端默认更低）
+        foliage: 3000,
+        ornaments: 20,   // 拍立得照片数量（移动端默认更低）
         elements: 100,   // 圣诞元素数量（移动端默认更低）
         lights: 100,     // 彩灯数量（移动端默认更低）
         gallery: { photos: 20, scale: 2.5, radius: 14, moveSpeed: 20.0 },
         camera: { distance: 40 },
+        hd: true,
       }
     : {
         foliage: 15000,
@@ -71,6 +72,7 @@ const CONFIG = {
         lights: 400,      // 彩灯数量
         gallery: { photos: 20, scale: 2.5, radius: 14, moveSpeed: 20.0 }, // 照片墙参数（moveSpeed：散开→照片墙迁移速度）
         camera: { distance: 40 }, // 默认视角距离（越小越近）
+        hd: false,
       },
   tree: { height: 22, radius: 9 }, // 树体尺寸
   photos: {
@@ -151,7 +153,7 @@ const Foliage = ({ state, count }: { state: 'CHAOS' | 'FORMED', count: number })
 };
 
 // --- Component: Photo Ornaments (Double-Sided Polaroid) ---
-const PhotoOrnaments = ({ state, photoUrls, count, transitionProgress = 0, ringRadius = 14, isGallery = false, gallerySpeed = 1.0, focusScale = 2.0 }: { state: 'CHAOS' | 'FORMED', photoUrls: string[], count: number, transitionProgress?: number, ringRadius?: number, isGallery?: boolean, gallerySpeed?: number, focusScale?: number }) => {
+const PhotoOrnaments = ({ state, photoUrls, count, transitionProgress = 0, ringRadius = 14, isGallery = false, gallerySpeed = 1.0, focusScale = 2.0, hdMode = false }: { state: 'CHAOS' | 'FORMED', photoUrls: string[], count: number, transitionProgress?: number, ringRadius?: number, isGallery?: boolean, gallerySpeed?: number, focusScale?: number, hdMode?: boolean }) => {
   const effectiveUrls = useMemo(() => photoUrls.slice(0, Math.min(photoUrls.length, count)), [photoUrls, count]);
   const loadedTextures = useTexture(effectiveUrls);
   const fallbackTexture = useMemo(() => {
@@ -163,12 +165,18 @@ const PhotoOrnaments = ({ state, photoUrls, count, transitionProgress = 0, ringR
   const textures = loadedTextures.length > 0 ? loadedTextures : [fallbackTexture];
   const groupRef = useRef<THREE.Group>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const { gl } = useThree();
   useEffect(() => {
     if (IS_MOBILE) {
       textures.forEach(tex => {
-        tex.generateMipmaps = false;
-        tex.minFilter = THREE.LinearFilter;
+        // 高清模式启用 mipmap 与各向异性过滤，提高清晰度
+        tex.generateMipmaps = hdMode;
+        tex.minFilter = hdMode ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
         tex.magFilter = THREE.LinearFilter;
+        if (hdMode && gl && (gl.capabilities as any).getMaxAnisotropy) {
+          const maxAniso = gl.capabilities.getMaxAnisotropy();
+          tex.anisotropy = Math.min(4, maxAniso || 1);
+        }
       });
     }
   }, [textures]);
@@ -287,7 +295,7 @@ const PhotoOrnaments = ({ state, photoUrls, count, transitionProgress = 0, ringR
               <meshStandardMaterial
                 map={textures[obj.textureIndex]}
                 roughness={0.5} metalness={0}
-                emissive={CONFIG.colors.white} emissiveMap={textures[obj.textureIndex]} emissiveIntensity={1.0}
+                emissive={CONFIG.colors.white} emissiveMap={textures[obj.textureIndex]} emissiveIntensity={hdMode ? 0.25 : 1.0}
                 side={THREE.FrontSide}
               />
             </mesh>
@@ -301,7 +309,7 @@ const PhotoOrnaments = ({ state, photoUrls, count, transitionProgress = 0, ringR
               <meshStandardMaterial
                 map={textures[obj.textureIndex]}
                 roughness={0.5} metalness={0}
-                emissive={CONFIG.colors.white} emissiveMap={textures[obj.textureIndex]} emissiveIntensity={1.0}
+                emissive={CONFIG.colors.white} emissiveMap={textures[obj.textureIndex]} emissiveIntensity={hdMode ? 0.25 : 1.0}
                 side={THREE.FrontSide}
               />
             </mesh>
@@ -460,7 +468,7 @@ const TopStar = ({ state }: { state: 'CHAOS' | 'FORMED' }) => {
 };
 
 // --- Main Scene Experience ---
-const Experience = ({ sceneState, rotationSpeed, photoUrls, counts, transitionProgress = 0, ringRadius = 14, isGallery = false, gallerySpeed = 1.0 }: { sceneState: 'CHAOS' | 'FORMED', rotationSpeed: number, photoUrls: string[], counts: { foliage: number; ornaments: number; elements: number; lights: number; gallery: { photos: number; scale: number; radius: number; moveSpeed: number }; camera: { distance: number } }, transitionProgress?: number, ringRadius?: number, isGallery?: boolean, gallerySpeed?: number }) => {
+const Experience = ({ sceneState, rotationSpeed, photoUrls, counts, transitionProgress = 0, ringRadius = 14, isGallery = false, gallerySpeed = 1.0 }: { sceneState: 'CHAOS' | 'FORMED', rotationSpeed: number, photoUrls: string[], counts: { foliage: number; ornaments: number; elements: number; lights: number; gallery: { photos: number; scale: number; radius: number; moveSpeed: number }; camera: { distance: number }; hd: boolean }, transitionProgress?: number, ringRadius?: number, isGallery?: boolean, gallerySpeed?: number }) => {
   const controlsRef = useRef<any>(null);
   const { gl } = useThree();
   const supportsPost = !!(gl && (gl as any).capabilities && (gl as any).capabilities.isWebGL2) && !IS_MOBILE;
@@ -494,7 +502,7 @@ const Experience = ({ sceneState, rotationSpeed, photoUrls, counts, transitionPr
       <group position={[0, -6, 0]}>
         <Foliage state={sceneState} count={effCounts.foliage} />
         <Suspense fallback={null}>
-           <PhotoOrnaments state={sceneState} photoUrls={photoUrls} count={effCounts.ornaments} transitionProgress={transitionProgress} ringRadius={ringRadius} isGallery={isGallery} gallerySpeed={gallerySpeed} focusScale={counts.gallery.scale} />
+           <PhotoOrnaments state={sceneState} photoUrls={photoUrls} count={effCounts.ornaments} transitionProgress={transitionProgress} ringRadius={ringRadius} isGallery={isGallery} gallerySpeed={gallerySpeed} focusScale={counts.gallery.scale} hdMode={counts.hd} />
            <ChristmasElements state={sceneState} count={effCounts.elements} />
            <FairyLights state={sceneState} count={effCounts.lights} />
            <TopStar state={sceneState} />
@@ -566,10 +574,10 @@ export default function GrandTreeApp() {
       {/* 顶部固定文案（不随视角/缩放/状态变化） */}
       <div className="top-banner">
         <div className="title">Merry Christmax</div>
-        <div className="subtitle">点击任意处开始</div>
+        <div className="subtitle">点击任意处开始（PC端更清晰哦）</div>
       </div>
       <div style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1 }}>
-        <Canvas dpr={IS_MOBILE ? 1 : [1, 2]} gl={{ toneMapping: THREE.ReinhardToneMapping, antialias: !IS_MOBILE, powerPreference: 'high-performance' }} shadows={!IS_MOBILE}>
+        <Canvas dpr={IS_MOBILE ? (counts.hd ? Math.min(2, window.devicePixelRatio || 2) : 1) : [1, 2]} gl={{ toneMapping: THREE.ReinhardToneMapping, antialias: IS_MOBILE ? counts.hd : true, powerPreference: 'high-performance' }} shadows={!IS_MOBILE}>
           <SceneRoot sceneState={sceneState} rotationSpeed={rotationSpeed} photoUrls={photoUrls} counts={counts} />
         </Canvas>
       </div>
@@ -657,6 +665,9 @@ export default function GrandTreeApp() {
 
             <label>照片墙：迁移速度（散开→照片墙）</label>
             <input type="number" min={0.2} max={20} value={counts.gallery.moveSpeed} onChange={(e) => setCounts(c => ({ ...c, gallery: { ...c.gallery, moveSpeed: Math.max(0.2, Math.min(20, Number(e.target.value) || 0)) } }))} inputMode="numeric" />
+
+            <label>移动端高清模式（更清晰，稍增负载）</label>
+            <input type="checkbox" checked={!!counts.hd} onChange={(e) => setCounts(c => ({ ...c, hd: e.target.checked }))} />
             <hr style={{ borderColor: 'rgba(255,215,0,0.2)' }} />
           </div>
           <p className="hint">提示：数值越大视觉越华丽，但在手机端可能卡顿。建议逐步调试找到合适的平衡。</p>
@@ -684,7 +695,7 @@ export default function GrandTreeApp() {
   );
 }
 // --- Root Scene: 控制树与照片墙的可见度过渡 ---
-const SceneRoot = ({ sceneState, rotationSpeed, photoUrls, counts }: { sceneState: 'CHAOS' | 'FORMED' | 'GALLERY', rotationSpeed: number, photoUrls: string[], counts: { foliage: number; ornaments: number; elements: number; lights: number; gallery: { photos: number; scale: number; radius: number; moveSpeed: number }; camera: { distance: number } } }) => {
+const SceneRoot = ({ sceneState, rotationSpeed, photoUrls, counts }: { sceneState: 'CHAOS' | 'FORMED' | 'GALLERY', rotationSpeed: number, photoUrls: string[], counts: { foliage: number; ornaments: number; elements: number; lights: number; gallery: { photos: number; scale: number; radius: number; moveSpeed: number }; camera: { distance: number }; hd: boolean } }) => {
   const [galleryVis, setGalleryVis] = useState(0);
   const prevRef = useRef<'CHAOS' | 'FORMED' | 'GALLERY'>(sceneState);
   const originRef = useRef<'CHAOS' | 'FORMED'>('FORMED');

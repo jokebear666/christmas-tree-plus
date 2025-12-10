@@ -55,14 +55,23 @@ const CONFIG = {
     giftColors: ['#D32F2F', '#FFD700', '#1976D2', '#2E7D32'],
     candyColors: ['#FF0000', '#FFFFFF']
   },
-  counts: {
-    foliage: 15000,
-    ornaments: 300,   // 拍立得照片数量
-    elements: 200,    // 圣诞元素数量
-    lights: 400,      // 彩灯数量
-    gallery: { photos: 20, scale: 2.5, radius: 14, moveSpeed: 20.0 }, // 照片墙参数（moveSpeed：散开→照片墙迁移速度）
-    camera: { distance: 40 } // 默认视角距离（越小越近）
-  },
+  counts: IS_MOBILE
+    ? {
+        foliage: 1500,
+        ornaments: 10,   // 拍立得照片数量（移动端默认更低）
+        elements: 100,   // 圣诞元素数量（移动端默认更低）
+        lights: 100,     // 彩灯数量（移动端默认更低）
+        gallery: { photos: 20, scale: 2.5, radius: 14, moveSpeed: 20.0 },
+        camera: { distance: 40 },
+      }
+    : {
+        foliage: 15000,
+        ornaments: 300,   // 拍立得照片数量
+        elements: 200,    // 圣诞元素数量
+        lights: 400,      // 彩灯数量
+        gallery: { photos: 20, scale: 2.5, radius: 14, moveSpeed: 20.0 }, // 照片墙参数（moveSpeed：散开→照片墙迁移速度）
+        camera: { distance: 40 }, // 默认视角距离（越小越近）
+      },
   tree: { height: 22, radius: 9 }, // 树体尺寸
   photos: {
     // top 属性不再需要，因为已经移入 body

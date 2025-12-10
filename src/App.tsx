@@ -58,7 +58,7 @@ const CONFIG = {
     ornaments: 300,   // 拍立得照片数量
     elements: 200,    // 圣诞元素数量
     lights: 400,      // 彩灯数量
-    gallery: { photos: 20, scale: 2.5, radius: 14, moveSpeed: 2.0 }, // 照片墙参数（moveSpeed：散开→照片墙迁移速度）
+    gallery: { photos: 20, scale: 2.5, radius: 14, moveSpeed: 20.0 }, // 照片墙参数（moveSpeed：散开→照片墙迁移速度）
     camera: { distance: 40 } // 默认视角距离（越小越近）
   },
   tree: { height: 22, radius: 9 }, // 树体尺寸
